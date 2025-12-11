@@ -109,7 +109,9 @@ jobs:
       uses: EnricoMi/publish-unit-test-result-action@v2
       if: always() && matrix.os == 'ubuntu-latest'
       with:
-        files: unit_tests/reports/**/*.xml
+        files: |
+          unit_tests/reports/junit_*.xml
+          unit_tests/reports/bdd/*.xml
         check_name: Test Results (${{ matrix.os }}, Python ${{ matrix.python-version }})
   
   allure-report:
@@ -123,14 +125,6 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         path: artifacts
-    
-    - name: 📊 Get Allure history
-      uses: actions/checkout@v4
-      if: always()
-      continue-on-error: true
-      with:
-        ref: gh-pages
-        path: gh-pages
     
     - name: 📈 Generate Allure Report
       uses: simple-elf/allure-report-action@master
