@@ -51,6 +51,8 @@ pipeline {
             }
         }
 
+        stage('Run BDD Tests') {
+            steps {
                 dir('unit_tests') {
                     bat '''
                         behave tests/bdd/features --junit --junit-directory reports/bdd || exit 0
