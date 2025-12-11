@@ -86,13 +86,20 @@ pipeline {
                 reportName: 'Coverage Report'
             ])
             
-            allure([
-                includeProperties: false,
-                jdk: '',
-                properties: [],
-                reportBuildPolicy: 'ALWAYS',
-                results: [[path: 'unit_tests/reports/allure-results']]
-            ])
+            script {
+                try {
+                    allure([
+                        includeProperties: false,
+                        jdk: '',
+                        properties: [],
+                        reportBuildPolicy: 'ALWAYS',
+                        results: [[path: 'unit_tests/reports/allure-results']]
+                    ])
+                } catch (Exception e) {
+                    echo "⚠️ Allure report generation skipped: ${e.message}"
+                    echo "Configure Allure Commandline in Global Tool Configuration"
+                }
+            }
         }
         
         success {
