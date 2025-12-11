@@ -34,7 +34,7 @@ pipeline {
                 dir('unit_tests') {
                     bat '''
                         if not exist reports mkdir reports
-                        if not exist reports\allure-results mkdir reports\allure-results
+                        if not exist reports\\allure-results mkdir reports\\allure-results
                         python -m pytest tests/ --ignore=tests/test_allure_examples.py -v --html=reports/report.html --self-contained-html --junitxml=reports/junit.xml --alluredir=reports/allure-results
                     '''
                 }
