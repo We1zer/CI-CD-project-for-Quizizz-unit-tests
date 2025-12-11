@@ -26,30 +26,30 @@ jobs:
       fail-fast: false
     
     steps:
-    - name: 📥 Checkout code
+    - name:  Checkout code
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
     
-    - name: 🐍 Set up Python ${{ matrix.python-version }}
+    - name:  Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
     
-    - name: 📦 Install dependencies
+    - name:  Install dependencies
       working-directory: ./unit_tests
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: 📁 Create reports directory
+    - name:  Create reports directory
       working-directory: ./unit_tests
       run: |
         mkdir -p reports
       shell: bash
     
-    - name: 🔍 Code Quality Check
+    - name:  Code Quality Check
       working-directory: ./unit_tests
       run: |
         pip install pylint flake8
@@ -57,43 +57,38 @@ jobs:
         pylint *.py --exit-zero --output-format=text --reports=y > reports/pylint_report.txt || true
       continue-on-error: true
     
-    - name: 🧪 Run Unit Tests (Sequential)
+    - name:  Run Unit Tests (Sequential)
       working-directory: ./unit_tests
       env:
         PYTHONPATH: ${{ github.workspace }}/unit_tests
       run: |
-        pytest tests/ --ignore=tests/test_allure_examples.py -v --html=reports/report_sequential.html --self-contained-html --tb=short --junitxml=reports/junit_sequential.xml
+        pip install allure-pytest
+        pytest tests/ --ignore=tests/test_allure_examples.py -v --html=reports/report_sequential.html --self-contained-html --tb=short --junitxml=reports/junit_sequential.xml --alluredir=reports/allure-results
     
-    - name: ⚡ Run Unit Tests (Parallel)
+    - name:  Run Unit Tests (Parallel)
       working-directory: ./unit_tests
       env:
         PYTHONPATH: ${{ github.workspace }}/unit_tests
       run: |
         pytest tests/ --ignore=tests/test_allure_examples.py -n auto -v --html=reports/report_parallel.html --self-contained-html --tb=short --junitxml=reports/junit_parallel.xml
     
-    - name: 📊 Generate Coverage Report
+    - name:  Generate Coverage Report
       working-directory: ./unit_tests
       env:
         PYTHONPATH: ${{ github.workspace }}/unit_tests
       run: |
         pytest tests/ --ignore=tests/test_allure_examples.py --cov=. --cov-report=html:reports/coverage --cov-report=xml:reports/coverage.xml --cov-report=term
     
-    - name: 📈 Generate Allure Report
-      working-directory: ./unit_tests
-      if: always()
-      run: |
-        pip install allure-pytest || true
-        pytest tests/ --ignore=tests/test_allure_examples.py --alluredir=reports/allure-results -v || true
-      continue-on-error: true
+
     
-    - name: 🥒 Run BDD Tests
+    - name:  Run BDD Tests
       working-directory: ./unit_tests
       if: always()
       run: |
         behave tests/bdd/features --junit --junit-directory reports/bdd || true
       continue-on-error: true
     
-    - name: 📤 Upload Test Reports
+    - name:  Upload Test Reports
       uses: actions/upload-artifact@v4
       if: always()
       with:
@@ -101,7 +96,7 @@ jobs:
         path: unit_tests/reports/
         retention-days: 30
     
-    - name: 📤 Upload Coverage to Codecov
+    - name:  Upload Coverage to Codecov
       uses: codecov/codecov-action@v3
       if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
       with:
@@ -117,15 +112,15 @@ jobs:
     if: always()
     
     steps:
-    - name: 📦 Checkout repository
+    - name:  Checkout repository
       uses: actions/checkout@v4
     
-    - name: 📥 Download artifacts
+    - name:  Download artifacts
       uses: actions/download-artifact@v4
       with:
         path: artifacts
     
-    - name: 📈 Generate Allure Report
+    - name:  Generate Allure Report
       uses: simple-elf/allure-report-action@master
       if: always()
       with:
@@ -133,7 +128,7 @@ jobs:
         allure_history: allure-history
         keep_reports: 20
     
-    - name: 🚀 Deploy Allure Report to GitHub Pages
+    - name:  Deploy Allure Report to GitHub Pages
       if: always()
       uses: peaceiris/actions-gh-pages@v3
       with:
@@ -148,8 +143,8 @@ jobs:
     if: always()
     
     steps:
-    - name: 📧 Send status notification
+    - name:  Send status notification
       run: |
-        echo "✅ Pipeline completed"
+        echo " Pipeline completed"
         echo "Test job status: ${{ needs.test.result }}"
         echo "Allure report job status: ${{ needs.allure-report.result }}"
