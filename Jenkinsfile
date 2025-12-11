@@ -23,7 +23,7 @@ pipeline {
                     bat '''
                         python --version
                         python -m pip install --upgrade pip
-                        python -m pip install pytest pytest-html pytest-cov pytest-xdist behave
+                        python -m pip install pytest pytest-html pytest-cov pytest-xdist behave allure-pytest
                     '''
                 }
             }
@@ -34,7 +34,8 @@ pipeline {
                 dir('unit_tests') {
                     bat '''
                         if not exist reports mkdir reports
-                        python -m pytest tests/ --ignore=tests/test_allure_examples.py -v --html=reports/report.html --self-contained-html --junitxml=reports/junit.xml
+                        if not exist reports\allure-results mkdir reports\allure-results
+                        python -m pytest tests/ --ignore=tests/test_allure_examples.py -v --html=reports/report.html --self-contained-html --junitxml=reports/junit.xml --alluredir=reports/allure-results
                     '''
                 }
             }
@@ -83,6 +84,14 @@ pipeline {
                 reportDir: 'unit_tests/reports/coverage',
                 reportFiles: 'index.html',
                 reportName: 'Coverage Report'
+            ])
+            
+            allure([
+                includeProperties: false,
+                jdk: '',
+                properties: [],
+                reportBuildPolicy: 'ALWAYS',
+                results: [[path: 'unit_tests/reports/allure-results']]
             ])
         }
         
