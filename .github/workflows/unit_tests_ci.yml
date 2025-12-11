@@ -54,16 +54,22 @@ jobs:
     
     - name: 🧪 Run Unit Tests (Sequential)
       working-directory: ./unit_tests
+      env:
+        PYTHONPATH: ${{ github.workspace }}/unit_tests
       run: |
         pytest tests/ --ignore=tests/test_allure_examples.py -v --html=reports/report_sequential.html --self-contained-html --tb=short --junitxml=reports/junit_sequential.xml
     
     - name: ⚡ Run Unit Tests (Parallel)
       working-directory: ./unit_tests
+      env:
+        PYTHONPATH: ${{ github.workspace }}/unit_tests
       run: |
         pytest tests/ --ignore=tests/test_allure_examples.py -n auto -v --html=reports/report_parallel.html --self-contained-html --tb=short --junitxml=reports/junit_parallel.xml
     
     - name: 📊 Generate Coverage Report
       working-directory: ./unit_tests
+      env:
+        PYTHONPATH: ${{ github.workspace }}/unit_tests
       run: |
         pytest tests/ --ignore=tests/test_allure_examples.py --cov=. --cov-report=html:reports/coverage --cov-report=xml:reports/coverage.xml --cov-report=term
     
