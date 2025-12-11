@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <!-- Generate a NuGet package so that other projects can consume the POM library -->
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Add any dependencies needed for your real automation here, e.g. Selenium.WebDriver -->
+  </ItemGroup>
+
+</Project>

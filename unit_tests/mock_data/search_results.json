@@ -1,0 +1,32 @@
+{
+  "quizzes": [
+    {
+      "id": 1,
+      "title": "Math Fundamentals",
+      "subject": "Math",
+      "grade": 5,
+      "questions": 15,
+      "plays": 1250,
+      "language": "en"
+    },
+    {
+      "id": 2,
+      "title": "World History Quiz",
+      "subject": "History",
+      "grade": 8,
+      "questions": 20,
+      "plays": 850,
+      "language": "en"
+    },
+    {
+      "id": 3,
+      "title": "Biology Basics",
+      "subject": "Science",
+      "grade": 7,
+      "questions": 12,
+      "plays": 2100,
+      "language": "en"
+    }
+  ],
+  "total_results": 3
+}

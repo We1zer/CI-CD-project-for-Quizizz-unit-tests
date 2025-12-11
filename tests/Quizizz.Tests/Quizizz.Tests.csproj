@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Quizizz.Core/Quizizz.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Unit testing framework -->
+    <PackageReference Include="xunit" Version="2.5.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.1" />
+
+    <!-- SpecFlow packages for BDD tests.  If you do not want to use SpecFlow,
+         you can remove these and use another BDD framework. -->
+    <PackageReference Include="SpecFlow" Version="3.9.74" />
+    <PackageReference Include="SpecFlow.xUnit" Version="3.9.74" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Make sure feature files are copied to the output directory -->
+    <None Include="Bdd/Features/**/*.feature" CopyToOutputDirectory="Always" />
+  </ItemGroup>
+
+</Project>

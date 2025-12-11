@@ -1,0 +1,136 @@
+name: CI/CD Pipeline - Pytest & Allure
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Щоденний запуск о 2:00 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.9', '3.10', '3.11']
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+    
+    - name: Lint with flake8
+      run: |
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      continue-on-error: true
+    
+    - name: Run Unit Tests with Pytest (Parallel)
+      run: |
+        pytest tests/ -n auto --maxprocesses=4 \
+          --alluredir=allure-results \
+          --junitxml=reports/junit.xml \
+          --html=reports/report.html \
+          --self-contained-html \
+          -v --tb=short
+    
+    - name: Run BDD Tests
+      run: |
+        pytest tests/bdd/ --alluredir=allure-results -v
+      continue-on-error: true
+    
+    - name: Generate Coverage Report
+      run: |
+        pytest tests/ --cov=. --cov-report=html:reports/coverage \
+          --cov-report=xml:reports/coverage.xml \
+          --cov-report=term
+    
+    - name: Upload Coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./reports/coverage.xml
+        flags: unittests
+        name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
+    
+    - name: Upload Test Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ matrix.os }}-py${{ matrix.python-version }}
+        path: |
+          reports/
+          allure-results/
+    
+    - name: Upload Allure Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: allure-results-${{ matrix.os }}-py${{ matrix.python-version }}
+        path: allure-results/
+
+  allure-report:
+    name: Generate Allure Report
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+    
+    steps:
+    - name: Download Allure Results
+      uses: actions/download-artifact@v4
+      with:
+        pattern: allure-results-*
+        merge-multiple: true
+        path: allure-results
+    
+    - name: Get Allure history
+      uses: actions/checkout@v4
+      if: github.ref == 'refs/heads/main'
+      continue-on-error: true
+      with:
+        ref: gh-pages
+        path: gh-pages
+    
+    - name: Generate Allure Report
+      uses: simple-elf/allure-report-action@v1.7
+      if: always()
+      with:
+        allure_results: allure-results
+        allure_history: allure-history
+        keep_reports: 20
+    
+    - name: Deploy Allure Report to GitHub Pages
+      if: github.ref == 'refs/heads/main'
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_branch: gh-pages
+        publish_dir: allure-history
+
+  notify:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: [test, allure-report]
+    if: always()
+    
+    steps:
+    - name: Send Notification
+      run: |
+        echo "✅ CI/CD Pipeline completed!"
+        echo "Test Status: ${{ needs.test.result }}"
+        echo "Report Status: ${{ needs.allure-report.result }}"

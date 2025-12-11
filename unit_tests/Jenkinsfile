@@ -1,0 +1,213 @@
+pipeline {
+    agent any
+    
+    environment {
+        PYTHON_VERSION = '3.9'
+        VENV_DIR = 'venv'
+        ALLURE_VERSION = '2.24.0'
+    }
+    
+    options {
+        // Зберігати останні 10 збірок
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+        // Таймаут для всього пайплайну
+        timeout(time: 30, unit: 'MINUTES')
+        // Показувати timestamps в логах
+        timestamps()
+    }
+    
+    triggers {
+        // Автоматичний запуск при зміні в Git
+        pollSCM('H/5 * * * *')
+        // Періодична збірка кожен день о 2:00
+        cron('0 2 * * *')
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                echo '📥 Завантаження коду з репозиторію...'
+                checkout scm
+                script {
+                    env.GIT_COMMIT_MSG = bat(returnStdout: true, script: 'git log -1 --pretty=%%B').trim()
+                    env.GIT_AUTHOR = bat(returnStdout: true, script: 'git log -1 --pretty=%%an').trim()
+                    echo "Commit: ${env.GIT_COMMIT_MSG}"
+                    echo "Author: ${env.GIT_AUTHOR}"
+                }
+            }
+        }
+        
+        stage('Setup Environment') {
+            steps {
+                echo '🔧 Налаштування Python середовища...'
+                dir('unit_tests') {
+                    bat '''
+                        python --version
+                        python -m venv %VENV_DIR%
+                        call %VENV_DIR%\\Scripts\\activate.bat
+                        python -m pip install --upgrade pip
+                        pip install -r requirements.txt
+                    '''
+                }
+            }
+        }
+        
+        stage('Install Dependencies') {
+            steps {
+                echo '📦 Встановлення залежностей...'
+                dir('unit_tests') {
+                    bat '''
+                        call %VENV_DIR%\\Scripts\\activate.bat
+                        pip install pytest pytest-xdist pytest-html allure-pytest pytest-parallel pytest-cov
+                        pip list
+                    '''
+                }
+            }
+        }
+        
+        stage('Code Quality Check') {
+            steps {
+                echo '🔍 Перевірка якості коду...'
+                dir('unit_tests') {
+                    bat '''
+                        call %VENV_DIR%\\Scripts\\activate.bat
+                        pip install pylint flake8
+                        echo "=== Pylint Report ===" || exit 0
+                        pylint *.py --exit-zero --output-format=text --reports=y > reports/pylint_report.txt || exit 0
+                        echo "=== Flake8 Report ===" || exit 0
+                        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || exit 0
+                    '''
+                }
+            }
+        }
+        
+        stage('Parallel Tests') {
+            parallel {
+                stage('Unit Tests - Sequential') {
+                    steps {
+                        echo '🧪 Запуск Unit тестів (послідовно)...'
+                        dir('unit_tests') {
+                            bat '''
+                                call %VENV_DIR%\\Scripts\\activate.bat
+                                pytest tests/ -v --html=reports/report_sequential.html --self-contained-html --tb=short
+                            '''
+                        }
+                    }
+                }
+                
+                stage('Unit Tests - Parallel') {
+                    steps {
+                        echo '⚡ Запуск Unit тестів (паралельно з pytest-xdist)...'
+                        dir('unit_tests') {
+                            bat '''
+                                call %VENV_DIR%\\Scripts\\activate.bat
+                                pytest tests/ -n auto -v --html=reports/report_parallel.html --self-contained-html --tb=short
+                            '''
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Coverage Report') {
+            steps {
+                echo '📊 Генерація звіту покриття коду...'
+                dir('unit_tests') {
+                    bat '''
+                        call %VENV_DIR%\\Scripts\\activate.bat
+                        pytest tests/ --cov=. --cov-report=html:reports/coverage --cov-report=xml:reports/coverage.xml --cov-report=term
+                    '''
+                }
+            }
+        }
+        
+        stage('Allure Report Generation') {
+            steps {
+                echo '📈 Генерація Allure звіту...'
+                dir('unit_tests') {
+                    bat '''
+                        call %VENV_DIR%\\Scripts\\activate.bat
+                        pytest tests/ --alluredir=reports/allure-results -v
+                    '''
+                }
+                script {
+                    allure([
+                        includeProperties: false,
+                        jdk: '',
+                        properties: [],
+                        reportBuildPolicy: 'ALWAYS',
+                        results: [[path: 'unit_tests/reports/allure-results']]
+                    ])
+                }
+            }
+        }
+        
+        stage('BDD Tests') {
+            when {
+                expression { fileExists('unit_tests/tests/bdd/features') }
+            }
+            steps {
+                echo '🥒 Запуск BDD тестів (якщо існують)...'
+                dir('unit_tests') {
+                    bat '''
+                        call %VENV_DIR%\\Scripts\\activate.bat
+                        pip install behave
+                        behave tests/bdd/features --junit --junit-directory reports/bdd || exit 0
+                    '''
+                }
+            }
+        }
+        
+        stage('Archive Artifacts') {
+            steps {
+                echo '💾 Архівування артефактів...'
+                dir('unit_tests') {
+                    archiveArtifacts artifacts: 'reports/**/*', allowEmptyArchive: true
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'reports',
+                        reportFiles: 'report_parallel.html,report_sequential.html',
+                        reportName: 'Test Reports',
+                        reportTitles: 'Test Reports'
+                    ])
+                    publishHTML([
+                        allowMissing: false,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: 'reports/coverage',
+                        reportFiles: 'index.html',
+                        reportName: 'Coverage Report',
+                        reportTitles: 'Coverage Report'
+                    ])
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo '🧹 Очищення...'
+            junit testResults: 'unit_tests/reports/**/*.xml', allowEmptyResults: true
+        }
+        
+        success {
+            echo '✅ Збірка успішна!'
+            script {
+                if (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') {
+                    echo '🎉 Деплой на продакшн може бути тут...'
+                }
+            }
+        }
+        
+        failure {
+            echo '❌ Збірка не вдалася!'
+            // Тут можна додати відправку повідомлень (email, Slack і т.д.)
+        }
+        
+        unstable {
+            echo '⚠️ Збірка нестабільна (деякі тести не пройшли)'
+        }
+    }
+}

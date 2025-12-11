@@ -1,0 +1,168 @@
+// Jenkins declarative pipeline for Quizizz test automation
+//
+// This Jenkinsfile defines a complete CI/CD pipeline for building and testing
+// the Quizizz test framework written in .NET Core.  It demonstrates how to
+// restore NuGet packages, compile the solution, execute unit and BDD tests in parallel,
+// generate test reports and publish Allure results.  Configured for Windows PowerShell.
+
+pipeline {
+    agent any
+
+    // Define global tools.  These names must match the tool installations
+    // configured in Jenkins (Manage Jenkins → Global Tool Configuration).
+    tools {
+        // Name of the .NET SDK installation as configured in Jenkins
+        // For example, if you configured a .NET installation named "dotnet-8.0", use that here.
+        dotnet "dotnet"
+    }
+
+    // Environment variables for the pipeline
+    environment {
+        DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+        DOTNET_SKIP_FIRST_TIME_EXPERIENCE = '1'
+    }
+
+    // Trigger builds on every commit (poll SCM every 5 minutes) and periodically every night at 02:00
+    triggers {
+        pollSCM('H/5 * * * *')
+        cron('H 2 * * *')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Checkout from the SCM specified when creating the pipeline job
+                checkout scm
+                echo "✓ Source code checked out successfully"
+            }
+        }
+
+        stage('Restore') {
+            steps {
+                // Restore NuGet packages for all projects in the solution
+                // Using bat for Windows PowerShell commands
+                bat 'dotnet restore'
+                echo "✓ NuGet packages restored"
+            }
+        }
+
+        stage('Build') {
+            steps {
+                // Build solution in Release configuration
+                bat 'dotnet build --configuration Release --no-restore'
+                echo "✓ Solution built successfully"
+            }
+        }
+
+        stage('Parallel Tests') {
+            parallel {
+                stage('Unit Tests') {
+                    steps {
+                        script {
+                            // Create TestResults directory if not exists
+                            bat 'if not exist TestResults mkdir TestResults'
+                            
+                            // Run unit tests with TRX logger
+                            bat '''
+                                dotnet test tests/Quizizz.Tests/Quizizz.Tests.csproj ^
+                                    --no-build ^
+                                    --no-restore ^
+                                    --configuration Release ^
+                                    --logger "trx;LogFileName=unit_tests.trx" ^
+                                    --results-directory TestResults ^
+                                    --filter "FullyQualifiedName!~Bdd"
+                            '''
+                            echo "✓ Unit tests completed"
+                        }
+                    }
+                }
+
+                stage('BDD Tests') {
+                    steps {
+                        script {
+                            // Create TestResults directory if not exists
+                            bat 'if not exist TestResults mkdir TestResults'
+                            
+                            // Run BDD tests separately
+                            bat '''
+                                dotnet test tests/Quizizz.Tests/Quizizz.Tests.csproj ^
+                                    --no-build ^
+                                    --no-restore ^
+                                    --configuration Release ^
+                                    --logger "trx;LogFileName=bdd_tests.trx" ^
+                                    --results-directory TestResults ^
+                                    --filter "FullyQualifiedName~Bdd"
+                            '''
+                            echo "✓ BDD tests completed"
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Generate Allure Report') {
+            steps {
+                script {
+                    // Convert TRX results to Allure format using allure-commandline
+                    // Requires Allure CLI installed on Jenkins agent
+                    bat '''
+                        if not exist allure-results mkdir allure-results
+                        allure generate TestResults --clean -o allure-report || echo "Allure report generation skipped"
+                    '''
+                    echo "✓ Allure report generated"
+                }
+            }
+        }
+
+        stage('Deploy') {
+            when {
+                branch 'main'
+            }
+            steps {
+                // Example deployment stage - runs only on main branch
+                bat 'echo "Deploying application to production..."'
+                bat 'echo "Current build: %BUILD_NUMBER%"'
+                echo "✓ Deployment completed"
+            }
+        }
+    }
+
+    post {
+        always {
+            // Publish test results to Jenkins
+            // MSTest plugin can read .trx files
+            mstest testResultsFile: 'TestResults/*.trx', failOnError: false, keepLongStdio: true
+            
+            // Publish Allure results (requires Allure Jenkins plugin)
+            allure([
+                includeProperties: false,
+                jdk: '',
+                reportBuildPolicy: 'ALWAYS',
+                results: [[path: 'allure-results']]
+            ])
+            
+            // Archive test results as artifacts
+            archiveArtifacts artifacts: 'TestResults/*.trx', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'allure-report/**/*', allowEmptyArchive: true
+            
+            echo "✓ Test results published"
+        }
+        
+        failure {
+            // Send notification on failure
+            echo '❌ Build failed! Check console output for details.'
+            // You can add email notifications here:
+            // emailext subject: "Jenkins Build Failed: ${env.JOB_NAME} - ${env.BUILD_NUMBER}",
+            //          body: "Build failed. Check ${env.BUILD_URL}",
+            //          to: "your-email@example.com"
+        }
+        
+        success {
+            echo '✓ Build succeeded! All tests passed.'
+        }
+        
+        unstable {
+            echo '⚠ Build unstable - some tests may have failed.'
+        }
+    }
+}

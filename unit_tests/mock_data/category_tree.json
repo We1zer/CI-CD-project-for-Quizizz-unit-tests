@@ -1,0 +1,34 @@
+{
+  "subjects": [
+    {
+      "id": 1,
+      "name": "Math",
+      "topics": ["Algebra", "Geometry", "Calculus"],
+      "quiz_count": 5420
+    },
+    {
+      "id": 2,
+      "name": "Science",
+      "topics": ["Biology", "Chemistry", "Physics"],
+      "quiz_count": 3890
+    },
+    {
+      "id": 3,
+      "name": "History",
+      "topics": ["World History", "US History", "Ancient History"],
+      "quiz_count": 2150
+    },
+    {
+      "id": 4,
+      "name": "English",
+      "topics": ["Grammar", "Literature", "Writing"],
+      "quiz_count": 2780
+    },
+    {
+      "id": 5,
+      "name": "Geography",
+      "topics": ["World Geography", "Maps", "Countries"],
+      "quiz_count": 1560
+    }
+  ]
+}

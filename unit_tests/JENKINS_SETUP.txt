@@ -1,0 +1,220 @@
+# Jenkins Setup Configuration File
+# Інструкції для налаштування Jenkins
+
+## Jenkins System Requirements
+- Java 11 або 17
+- Мінімум 2GB RAM
+- 10GB вільного місця на диску
+
+## Необхідні плагіни (встановіть через Manage Jenkins → Manage Plugins)
+
+### Essential Plugins
+1. Git plugin - робота з Git репозиторіями
+2. Pipeline - підтримка Jenkins Pipeline
+3. Pipeline: Stage View - візуалізація етапів pipeline
+4. Blue Ocean - сучасний UI для Jenkins
+
+### Testing & Reporting Plugins
+5. JUnit Plugin - публікація JUnit результатів
+6. HTML Publisher Plugin - публікація HTML звітів
+7. Allure Jenkins Plugin - інтеграція Allure звітів
+8. Cobertura Plugin - звіти покриття коду
+9. Test Results Analyzer Plugin - аналіз результатів тестів
+
+### Build & Integration Plugins
+10. Workspace Cleanup Plugin - очищення workspace
+11. Timestamper - timestamps в логах
+12. Build Timeout Plugin - таймаути для збірок
+13. Email Extension Plugin - розширені email нотифікації
+
+## Global Tool Configuration (Manage Jenkins → Global Tool Configuration)
+
+### Python Installation
+Name: Python 3.9
+Install automatically: ✓
+  - Add Installer: Extract *.zip/*.tar.gz
+  - Download URL for Windows: https://www.python.org/ftp/python/3.9.13/python-3.9.13-embed-amd64.zip
+
+Або встановіть Python системно та додайте до PATH
+
+### Allure Commandline
+Name: Allure
+Install automatically: ✓
+  - Install from Maven Central
+  - Version: 2.24.0
+
+### Git
+Name: Default
+Install automatically: ✓
+  - Install from git-scm.io
+
+## Jenkins Pipeline Job Configuration
+
+### General
+- Name: Quizizz-Unit-Tests-CI-CD
+- Description: Автоматизоване тестування Quizizz Unit Tests з паралельним виконанням та звітністю
+
+### Build Triggers
+☑ Poll SCM
+  Schedule: H/5 * * * * (кожні 5 хвилин)
+
+☑ Build periodically
+  Schedule: 0 2 * * * (щодня о 2:00)
+
+☑ GitHub hook trigger for GITScm polling (якщо використовуєте GitHub webhooks)
+
+### Pipeline
+Definition: Pipeline script from SCM
+  SCM: Git
+  Repository URL: <URL вашого репозиторію>
+  Credentials: <додайте credentials якщо приватний репозиторій>
+  Branch Specifier: */main (або ваша основна гілка)
+  Script Path: unit_tests/Jenkinsfile
+
+### Advanced Project Options
+☑ Display Name: Quizizz Unit Tests CI/CD
+☑ Discard old builds
+  - Strategy: Log Rotation
+  - Max # of builds to keep: 10
+
+## Environment Variables (Configure System → Global properties → Environment variables)
+
+KEY: PYTHON_HOME
+VALUE: C:\Python39 (або шлях до вашої Python інсталяції)
+
+KEY: PATH
+VALUE: %PYTHON_HOME%;%PYTHON_HOME%\Scripts;%PATH%
+
+## Jenkins Credentials Configuration
+
+### Git Credentials (якщо потрібно)
+Manage Jenkins → Manage Credentials → Global → Add Credentials
+  - Kind: Username with password
+  - Scope: Global
+  - Username: <ваш GitHub username>
+  - Password: <Personal Access Token>
+  - ID: github-credentials
+  - Description: GitHub Access Token
+
+### Email Configuration (якщо потрібно)
+Manage Jenkins → Configure System → E-mail Notification
+  - SMTP server: smtp.gmail.com
+  - Use SMTP Authentication: ✓
+  - User Name: <ваш email>
+  - Password: <app password>
+  - Use SSL: ✓
+  - SMTP Port: 465
+
+## Firewall & Security
+
+### Порти
+- Jenkins UI: 8080 (за замовчуванням)
+- Jenkins Agent: 50000
+
+### Для Windows Firewall
+```powershell
+New-NetFirewallRule -DisplayName "Jenkins" -Direction Inbound -Port 8080 -Protocol TCP -Action Allow
+```
+
+## Backup Strategy
+
+### Важливі директорії для backup
+- JENKINS_HOME/jobs/ - конфігурації jobs
+- JENKINS_HOME/plugins/ - плагіни
+- JENKINS_HOME/config.xml - глобальна конфігурація
+- JENKINS_HOME/credentials.xml - credentials
+
+### Команда для backup (Windows)
+```powershell
+$jenkinsHome = "C:\Program Files\Jenkins"
+$backupPath = "C:\Backups\Jenkins\$(Get-Date -Format 'yyyy-MM-dd')"
+robocopy $jenkinsHome $backupPath /MIR /XD workspace logs
+```
+
+## Troubleshooting
+
+### Проблема: Jenkins не може знайти Python
+Рішення:
+1. Додайте Python до системного PATH
+2. Або використайте повний шлях в Jenkinsfile: `C:\Python39\python.exe`
+3. Або налаштуйте Python в Global Tool Configuration
+
+### Проблема: Git credentials не працюють
+Рішення:
+1. Використовуйте Personal Access Token замість паролю
+2. Переконайтесь що токен має права: repo, admin:repo_hook
+3. Перевірте що credentials правильно додані в Jenkins
+
+### Проблема: Allure звіти не генеруються
+Рішення:
+1. Переконайтесь що плагін Allure встановлено
+2. Перевірте налаштування Allure Commandline в Global Tool Configuration
+3. Перезапустіть Jenkins після встановлення плагіну
+
+### Проблема: Build timeout
+Рішення:
+1. Збільште timeout в Jenkinsfile (timeout step)
+2. Або в Job Configuration → Build Environment → Abort the build if it's stuck
+
+## Performance Optimization
+
+### Паралельні збірки
+Configure System → # of executors: 4 (або більше, залежно від CPU)
+
+### Workspace Cleanup
+Додайте в кінець Jenkinsfile:
+```groovy
+cleanWs()
+```
+
+### Artifacts
+Обмежте збереження artifacts:
+- Days to keep artifacts: 30
+- Max # of builds to keep with artifacts: 5
+
+## Security Best Practices
+
+1. ☑ Enable CSRF Protection (Configure Global Security)
+2. ☑ Use Matrix-based security або Project-based Matrix Authorization
+3. ☑ Регулярно оновлюйте Jenkins та плагіни
+4. ☑ Використовуйте HTTPS для Jenkins UI
+5. ☑ Обмежте доступ до Jenkins (firewall, VPN)
+6. ☑ Регулярно робіть backup
+
+## Monitoring & Logs
+
+### Jenkins Logs Location
+Windows: C:\Program Files\Jenkins\jenkins.log
+Linux: /var/log/jenkins/jenkins.log
+
+### Корисні команди
+```powershell
+# Windows - перевірка статусу Jenkins service
+Get-Service jenkins
+
+# Перезапуск Jenkins service
+Restart-Service jenkins
+
+# Перегляд логів (PowerShell)
+Get-Content "C:\Program Files\Jenkins\jenkins.log" -Tail 50 -Wait
+```
+
+## Next Steps
+
+1. ✅ Встановіть Jenkins
+2. ✅ Встановіть необхідні плагіни
+3. ✅ Налаштуйте Global Tools
+4. ✅ Створіть Pipeline Job
+5. ✅ Підключіть Git репозиторій
+6. ✅ Запустіть перший Build
+7. ✅ Перевірте звіти (HTML, Allure, Coverage)
+8. ✅ Налаштуйте автоматичні triggers
+9. ✅ Налаштуйте notifications (email, Slack)
+10. ✅ Створіть backup strategy
+
+## Resources
+
+- Jenkins Documentation: https://www.jenkins.io/doc/
+- Allure Report: https://docs.qameta.io/allure/
+- pytest Documentation: https://docs.pytest.org/
+- Behave Documentation: https://behave.readthedocs.io/

@@ -1,0 +1,26 @@
+# Allure Configuration for Quizizz Unit Tests
+
+## Allure Categories
+categories:
+  - name: "Product defects"
+    matchedStatuses:
+      - failed
+    messageRegex: ".*AssertionError.*"
+    
+  - name: "Test defects"
+    matchedStatuses:
+      - broken
+    messageRegex: ".*"
+    
+  - name: "Warnings"
+    matchedStatuses:
+      - passed
+    messageRegex: ".*Warning.*"
+
+## Environment
+environment:
+  Project: Quizizz Unit Tests
+  Framework: pytest
+  Python.Version: 3.9+
+  Test.Type: Unit Tests
+  Execution.Mode: Parallel
