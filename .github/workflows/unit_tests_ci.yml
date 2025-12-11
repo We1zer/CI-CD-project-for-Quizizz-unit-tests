@@ -113,6 +113,7 @@ jobs:
           unit_tests/reports/junit_*.xml
           unit_tests/reports/bdd/*.xml
         check_name: Test Results (${{ matrix.os }}, Python ${{ matrix.python-version }})
+        compare_to_earlier_commit: false
   
   allure-report:
     name: Generate Allure Report
