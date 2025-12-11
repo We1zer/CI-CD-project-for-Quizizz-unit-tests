@@ -104,16 +104,6 @@ jobs:
         flags: unittests
         name: codecov-umbrella
         fail_ci_if_error: false
-    
-    - name: 📊 Publish Test Results
-      uses: EnricoMi/publish-unit-test-result-action@v2
-      if: always() && matrix.os == 'ubuntu-latest'
-      with:
-        files: |
-          unit_tests/reports/junit_*.xml
-          unit_tests/reports/bdd/*.xml
-        check_name: Test Results (${{ matrix.os }}, Python ${{ matrix.python-version }})
-        compare_to_earlier_commit: false
   
   allure-report:
     name: Generate Allure Report
