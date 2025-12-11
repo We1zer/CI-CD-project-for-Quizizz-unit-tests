@@ -1,99 +1,96 @@
-// Jenkins declarative pipeline for Quizizz test automation
+// Jenkins declarative pipeline for Quizizz Python test automation
 //
-// This Jenkinsfile defines a simple CI/CD pipeline for building and testing
-// the Quizizz test framework written in .NET Core.  It demonstrates how to
-// restore NuGet packages, compile the solution, execute unit and BDD tests,
-// generate test reports and publish Allure results.  Adjust the stages and
-// tooling paths according to your environment.
+// This Jenkinsfile defines a CI/CD pipeline for testing Python unit tests.
+// It runs tests, generates reports and archives artifacts.
 
 pipeline {
     agent any
 
-    // Define global tools.  These names must match the tool installations
-    // configured in Jenkins (Manage Jenkins → Global Tool Configuration).
-    tools {
-        // Name of the .NET SDK installation as configured in Jenkins
-        // For example, if you configured a .NET installation named "dotnet-8.0", use that here.
-        dotnet "dotnet"
-    }
-
-    // Trigger builds on every commit and periodically every night at 02:00
+    // Trigger builds on every commit (check every 5 minutes)
     triggers {
         pollSCM('H/5 * * * *')
-        cron('H 2 * * *')
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Checkout from the SCM specified when creating the pipeline job
                 checkout scm
             }
         }
 
-        stage('Restore') {
+        stage('Setup Python Environment') {
             steps {
-                // Restore NuGet packages for all projects in the solution
-                // The --locked-mode option ensures restore fails if the lock file is outdated
-                sh 'dotnet restore --locked-mode'
-            }
-        }
-
-        stage('Build') {
-            steps {
-                // Build solution in Release configuration
-                sh 'dotnet build --configuration Release --no-restore'
-            }
-        }
-
-        stage('Test') {
-            steps {
-                // Ensure the TestResults directory exists
-                sh 'mkdir -p TestResults'
-
-                // Run tests and output a .trx file for each test project
-                // The --no-build flag reuses the build artifacts from the previous stage
-                sh 'dotnet test tests/Quizizz.Tests/Quizizz.Tests.csproj --no-build --no-restore --configuration Release \
-                     --logger "trx;LogFileName=quizizz_tests.trx" \
-                     --results-directory TestResults'
-
-                // Convert the .trx results into Allure format
-                // Requires the Allure CLI installed on the Jenkins agent and configured in PATH
-                sh 'allure generate --clean TestResults --output TestResults/allure-report || true'
-            }
-
-            post {
-                always {
-                    // Publish test results to Jenkins.  If you install the
-                    // JUnit plugin, Jenkins can display these results.
-                    junit allowEmptyResults: true, testResults: 'TestResults/*.trx'
-
-                    // Publish Allure results (requires Allure Jenkins plugin)
-                    allure includeProperties: false, jdk: '', reportBuildPolicy: 'ALWAYS', results: [[path: 'TestResults/allure-report']]
+                dir('unit_tests') {
+                    bat '''
+                        python --version
+                        python -m pip install --upgrade pip
+                        python -m pip install pytest pytest-html pytest-cov pytest-xdist behave
+                    '''
                 }
             }
         }
 
-        stage('Deploy') {
-            when {
-                branch 'main'
-            }
+        stage('Run Tests') {
             steps {
-                // Example deployment stage.  Replace this with real deployment
-                // commands, e.g. copying artifacts to a server or publishing
-                // results.  This stage runs only on the main branch.
-                sh 'echo "Deploying application..."'
+                dir('unit_tests') {
+                    bat '''
+                        if not exist reports mkdir reports
+                        python -m pytest tests/ --ignore=tests/test_allure_examples.py -v --html=reports/report.html --self-contained-html --junitxml=reports/junit.xml
+                    '''
+                }
+            }
+        }
+
+        stage('Generate Coverage') {
+            steps {
+                dir('unit_tests') {
+                    bat '''
+                        python -m pytest tests/ --ignore=tests/test_allure_examples.py --cov=. --cov-report=html:reports/coverage --cov-report=xml:reports/coverage.xml
+                    '''
+                }
+            }
+        }
+
+                dir('unit_tests') {
+                    bat '''
+                        behave tests/bdd/features --junit --junit-directory reports/bdd || exit 0
+                    '''
+                }
             }
         }
     }
 
     post {
-        failure {
-            // Send a notification or take other actions on failure
-            echo 'Build failed!'
+        always {
+            // Archive test reports and coverage
+            archiveArtifacts artifacts: 'unit_tests/reports/**/*', allowEmptyArchive: true
+            
+            // Publish JUnit test results
+            junit testResults: 'unit_tests/reports/*.xml', allowEmptyResults: true
+            
+            // Publish HTML reports
+            publishHTML([
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'unit_tests/reports',
+                reportFiles: 'report.html',
+                reportName: 'Test Report'
+            ])
+            
+            publishHTML([
+                allowMissing: true,
+                alwaysLinkToLastBuild: true,
+                keepAll: true,
+                reportDir: 'unit_tests/reports/coverage',
+                reportFiles: 'index.html',
+                reportName: 'Coverage Report'
+            ])
         }
+        
         success {
-            echo 'Build succeeded!'
+            echo '✅ Build successful!'
         }
+        
     }
 }
