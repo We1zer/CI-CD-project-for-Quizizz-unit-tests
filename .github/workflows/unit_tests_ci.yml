@@ -62,8 +62,7 @@ jobs:
       env:
         PYTHONPATH: ${{ github.workspace }}/unit_tests
       run: |
-        pip install allure-pytest
-        pytest tests/ --ignore=tests/test_allure_examples.py -v --html=reports/report_sequential.html --self-contained-html --tb=short --junitxml=reports/junit_sequential.xml --alluredir=reports/allure-results
+        pytest tests/ --ignore=tests/test_allure_examples.py -v --html=reports/report_sequential.html --self-contained-html --tb=short --junitxml=reports/junit_sequential.xml
     
     - name:  Run Unit Tests (Parallel)
       working-directory: ./unit_tests
@@ -79,7 +78,13 @@ jobs:
       run: |
         pytest tests/ --ignore=tests/test_allure_examples.py --cov=. --cov-report=html:reports/coverage --cov-report=xml:reports/coverage.xml --cov-report=term
     
-
+    - name:  Generate Allure Report
+      working-directory: ./unit_tests
+      if: always()
+      run: |
+        pip install allure-pytest || true
+        pytest tests/ --ignore=tests/test_allure_examples.py --alluredir=reports/allure-results -v || true
+      continue-on-error: true
     
     - name:  Run BDD Tests
       working-directory: ./unit_tests

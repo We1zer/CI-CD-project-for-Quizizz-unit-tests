@@ -6,7 +6,6 @@
 pipeline {
     agent any
 
-    // Trigger builds on every commit (check every 5 minutes)
     triggers {
         pollSCM('H/5 * * * *')
     }
@@ -64,13 +63,10 @@ pipeline {
 
     post {
         always {
-            // Archive test reports and coverage
             archiveArtifacts artifacts: 'unit_tests/reports/**/*', allowEmptyArchive: true
             
-            // Publish JUnit test results
             junit testResults: 'unit_tests/reports/*.xml', allowEmptyResults: true
             
-            // Publish HTML reports
             publishHTML([
                 allowMissing: true,
                 alwaysLinkToLastBuild: true,
@@ -91,7 +87,7 @@ pipeline {
         }
         
         success {
-            echo '✅ Build successful!'
+            echo ' Build successful!'
         }
         
     }
