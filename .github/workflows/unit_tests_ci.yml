@@ -3,12 +3,8 @@ name: CI/CD Pipeline for Quizizz Unit Tests
 on:
   push:
     branches: [ main, develop ]
-    paths:
-      - 'unit_tests/**'
   pull_request:
     branches: [ main, develop ]
-    paths:
-      - 'unit_tests/**'
   schedule:
     # Щоденний запуск о 2:00 UTC
     - cron: '0 2 * * *'
