@@ -1,0 +1,2 @@
+# Trigger GitHub Actions
+This file was added to demonstrate a commit that triggers the CI/CD workflow.
